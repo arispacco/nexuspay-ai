@@ -1,0 +1,942 @@
+{
+  "info": {
+    "name": "NexusPay AI — PayPal Agentic Commerce & Zero-Knowledge Escrow API",
+    "_postman_id": "8f29c140-4d8a-4e21-9b0c-1290ab441920",
+    "description": "Comprehensive Postman v2.1 Collection for NexusPay AI (PayPal AI Hackathon 2026). Validates @paypal/agent-toolkit MCP discovery, KYA Agent Negotiation, PayPal Orders v2 Escrow, Milestone Invoicing, Automated Captures, Arbitrated Refunds, Ephemeral RAM DLP Sanitization, Zero-Knowledge NDA Attestations, Inbound PayPal Webhooks, and AG Grid Ledger.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "agreementId",
+      "value": "SMA-DEMO-01"
+    },
+    {
+      "key": "orderId",
+      "value": "8XP9281728391"
+    },
+    {
+      "key": "captureId",
+      "value": "CAP-9821728192"
+    },
+    {
+      "key": "attestationId",
+      "value": "ZKA-1001"
+    },
+    {
+      "key": "invoiceId",
+      "value": "INV2-SBX-001"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. System & Telemetry",
+      "item": [
+        {
+          "name": "1.1 Health Check & MCP Status",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Service status is healthy', function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('healthy');",
+                  "    pm.expect(json.service).to.include('NexusPay AI');",
+                  "});",
+                  "pm.test('Registered PayPal MCP tools array is populated', function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.registeredMcpTools).to.be.an('array').that.is.not.empty;",
+                  "    pm.expect(json.registeredMcpTools).to.include('create_order');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "health"]
+            },
+            "description": "Readiness probe returning protocol status and registered MCP tools."
+          }
+        },
+        {
+          "name": "1.2 PayPal MCP Capabilities & Telemetry",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Exposes @paypal/agent-toolkit/mcp SDK', function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.sdkPackage).to.eql('@paypal/agent-toolkit/mcp');",
+                  "    pm.expect(json.registeredTools).to.be.an('array');",
+                  "});",
+                  "pm.test('Telemetry array exists for observability', function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.telemetry).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/paypal/mcp-tools",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "paypal", "mcp-tools"]
+            },
+            "description": "Inspects @paypal/agent-toolkit MCP tool definitions and recent execution ring buffer."
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Agent Negotiation & KYA Mandates",
+      "item": [
+        {
+          "name": "2.1 Run KYA Agent-to-Agent Negotiation",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Smart Milestone Agreement successfully generated', function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.success).to.be.true;",
+                  "    pm.expect(json.agreement).to.be.an('object');",
+                  "    pm.expect(json.agreement.id).to.be.a('string');",
+                  "    pm.collectionVariables.set('agreementId', json.agreement.id);",
+                  "});",
+                  "pm.test('Know-Your-Agent (KYA) passports issued for Atlas & Nova', function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.kyaPassports.buyerPassport.kyaId).to.include('KYA-PP-ATLAS');",
+                  "    pm.expect(json.kyaPassports.sellerPassport.kyaId).to.include('KYA-PP-NOVA');",
+                  "});",
+                  "pm.test('Transcript contains multi-agent dialogue', function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.transcript).to.be.an('array').that.is.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"projectTitle\": \"Autonomous Checkout Microservice\",\n  \"projectScope\": \"React + PayPal Orders v2 + Webhook verification\",\n  \"initialBudget\": 350,\n  \"freelancerSkills\": \"React, Node.js, PayPal SDK\",\n  \"ndaRequired\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/negotiate",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "negotiate"]
+            },
+            "description": "Simulates autonomous RFP mandate negotiation between Atlas (Buyer Agent) and Nova (Seller Agent)."
+          }
+        },
+        {
+          "name": "2.2 List All Persistent Agreements",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Agreements list returned from SQLite store', function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.agreements).to.be.an('array');",
+                  "    pm.expect(json.totalCount).to.be.a('number');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/agreements",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "agreements"]
+            },
+            "description": "Fetches all persistent Smart Milestone Agreements from the SQLite database."
+          }
+        },
+        {
+          "name": "2.3 Fetch Agreement By ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Returns agreement details matching target ID', function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json).to.have.property('id');",
+                  "    pm.expect(json).to.have.property('milestones');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/agreements/{{agreementId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "agreements", "{{agreementId}}"]
+            },
+            "description": "Retrieves an active agreement and milestone schedule by contract ID."
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. PayPal Escrow Lifecycle",
+      "item": [
+        {
+          "name": "3.1 Create PayPal Escrow Order (Deposit)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('PayPal Order ID generated and locked in Escrow', function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.success).to.be.true;",
+                  "    pm.expect(json.orderId).to.be.a('string');",
+                  "    pm.collectionVariables.set('orderId', json.orderId);",
+                  "});",
+                  "pm.test('Escrow state is LOCKED or CREATED', function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.status).to.be.oneOf(['CREATED', 'COMPLETED', 'APPROVED']);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 350,\n  \"currency\": \"USD\",\n  \"description\": \"NexusPay Milestone Escrow Hold\",\n  \"customId\": \"{{agreementId}}\",\n  \"intent\": \"CAPTURE\",\n  \"privacyMode\": \"ZK-NDA\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/paypal/create-order",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "paypal", "create-order"]
+            },
+            "description": "Locks milestone funds in PayPal Orders v2 escrow."
+          }
+        },
+        {
+          "name": "3.2 Issue PayPal Smart Milestone Invoice",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('PayPal Invoice created and logged', function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.success).to.be.true;",
+                  "    pm.expect(json.invoiceId).to.be.a('string');",
+                  "    pm.collectionVariables.set('invoiceId', json.invoiceId);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"agreement\": {\n    \"id\": \"{{agreementId}}\",\n    \"totalBudget\": 350,\n    \"currency\": \"USD\",\n    \"milestones\": [\n      { \"name\": \"Core Architecture & Webhooks\", \"amount\": 150 },\n      { \"name\": \"Frontend AG Grid & PayPal React Checkout\", \"amount\": 200 }\n    ]\n  },\n  \"recipientEmail\": \"freelancer-sandbox@business.example.com\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/paypal/create-invoice",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "paypal", "create-invoice"]
+            },
+            "description": "Generates an itemized milestone invoice via PayPal Invoicing v2."
+          }
+        },
+        {
+          "name": "3.3 Capture PayPal Escrow Order (Milestone Release)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Disbursement captured and status is COMPLETED', function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.success).to.be.true;",
+                  "    pm.expect(json.captureId).to.be.a('string');",
+                  "    pm.expect(json.status).to.eql('COMPLETED');",
+                  "    pm.collectionVariables.set('captureId', json.captureId);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orderId\": \"{{orderId}}\",\n  \"agreementId\": \"{{agreementId}}\",\n  \"score\": 95,\n  \"privacyMode\": \"ZK-NDA\",\n  \"proofHash\": \"sha256:7f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069\",\n  \"milestoneId\": \"M1\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/paypal/capture-order",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "paypal", "capture-order"]
+            },
+            "description": "Captures escrow hold to disburse payout upon AI/ZK audit approval."
+          }
+        },
+        {
+          "name": "3.4 Granular Milestone Payout Release",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200 or 404', function () {",
+                  "    pm.expect([200, 404]).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code === 200) {",
+                  "    var json = pm.response.json();",
+                  "    pm.test('Milestone released', function () {",
+                  "        pm.expect(json.success).to.be.true;",
+                  "        pm.expect(json.status).to.eql('RELEASED');",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"score\": 95,\n  \"proofHash\": \"sha256:release-m1-verified\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/agreements/{{agreementId}}/milestones/M1/release",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "agreements", "{{agreementId}}", "milestones", "M1", "release"]
+            },
+            "description": "Captures and disburses payment for an individual milestone."
+          }
+        },
+        {
+          "name": "3.5 Refund PayPal Order (Dispute Settlement)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Refund processed and refundId assigned', function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.success).to.be.true;",
+                  "    pm.expect(json.refundId).to.be.a('string');",
+                  "    pm.expect(json.status).to.eql('COMPLETED');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"captureId\": \"{{captureId}}\",\n  \"amount\": 125,\n  \"reason\": \"AI Arbitration Tribunal Settlement Ruling (75/25 Buyer Favor)\",\n  \"agreementId\": \"{{agreementId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/paypal/refund-order",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "paypal", "refund-order"]
+            },
+            "description": "Issues an arbitrated PayPal capture refund."
+          }
+        },
+        {
+          "name": "3.6 PayPal Client Token Generator",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Client token returned', function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.clientToken).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/paypal/client-token",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "paypal", "client-token"]
+            },
+            "description": "Generates a client token for frontend PayPal SDK initialization."
+          }
+        },
+        {
+          "name": "3.7 Validate PayPal Sandbox Credentials",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Response includes validity property', function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json).to.have.property('valid');",
+                  "    pm.expect(json).to.have.property('message');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clientId\": \"test_sandbox_client_id\",\n  \"clientSecret\": \"test_sandbox_client_secret\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/validate-paypal",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "validate-paypal"]
+            },
+            "description": "Checks PayPal Sandbox OAuth2 credentials."
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Privacy & Zero-Knowledge Shield",
+      "item": [
+        {
+          "name": "4.1 Ephemeral RAM DLP Secret Sanitization",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Secret API keys and PayPal tokens scrubbed', function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.redactionCount).to.be.at.least(2);",
+                  "    pm.expect(json.scrubbedContent).to.not.include('sk_test_999888777666');",
+                  "    pm.expect(json.scrubbedContent).to.not.include('EA12345678901234567890123456');",
+                  "});",
+                  "pm.test('Zero-Data-Retention (ZDR) Certificate issued', function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.zdrCertificate.mode).to.eql('EPHEMERAL_RAM_ONLY');",
+                  "    pm.expect(json.zdrCertificate.persistedToDisk).to.be.false;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"const API_KEY = 'sk_test_999888777666'; const PP_SECRET = 'EA12345678901234567890123456'; export function checkout() {}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/privacy/sanitize",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "privacy", "sanitize"]
+            },
+            "description": "Tests RAM secret redactor for sensitive keys and tokens."
+          }
+        },
+        {
+          "name": "4.2 AI Deliverable Verification & Static AST Audit",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Deliverable compliance score calculated', function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.overallScore).to.be.a('number').and.be.at.least(70);",
+                  "    pm.expect(json.verdict).to.be.oneOf(['AUTO_RELEASE_PAYOUT', 'REVISE_DELIVERABLE', 'DISPUTE_RECOMMENDED']);",
+                  "});",
+                  "pm.test('Criteria breakdown evaluates syntax, architecture, integration', function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.criteriaBreakdown).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"milestone\": \"M1: PayPal Checkout Integration\",\n  \"deliverableType\": \"code\",\n  \"deliverableContent\": \"import React from 'react'; export function Checkout() { return <div id='paypal-button-container'></div>; }\",\n  \"repoUrl\": \"https://github.com/arispacco/nexuspay-ai\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/verify-deliverable",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "verify-deliverable"]
+            },
+            "description": "Performs static AST code inspection with DLP sanitization."
+          }
+        },
+        {
+          "name": "4.3 Generate Zero-Knowledge NDA Proof (Local Private CI)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Cryptographic ZK Attestation Bundle generated', function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.attestationId).to.be.a('string');",
+                  "    pm.expect(json.hmacSha256Signature).to.be.a('string');",
+                  "    pm.expect(json.payload.sourceCodeTransmitted).to.be.false;",
+                  "    pm.collectionVariables.set('attestationBundle', JSON.stringify(json));",
+                  "    pm.collectionVariables.set('attestationId', json.attestationId);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"agreementId\": \"{{agreementId}}\",\n  \"milestoneId\": \"M1\",\n  \"testSuiteSummary\": {\n    \"totalTests\": 24,\n    \"passedTests\": 24,\n    \"coveragePercent\": 96,\n    \"buildPassed\": true,\n    \"lintErrors\": 0\n  },\n  \"ndaDomain\": \"enterprise-private-ci.local\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/privacy/generate-zk-proof",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "privacy", "generate-zk-proof"]
+            },
+            "description": "Simulates a local private CI runner generating an HMAC-signed test attestation."
+          }
+        },
+        {
+          "name": "4.4 Verify Zero-Knowledge Attestation Proof",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('ZK proof is cryptographically verified (0% code exposed)', function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.valid).to.be.true;",
+                  "    pm.expect(json.sourceCodeExposed).to.be.false;",
+                  "    pm.expect(json.overallScore).to.be.at.least(90);",
+                  "    pm.expect(json.verdict).to.eql('AUTO_RELEASE_PAYOUT');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"attestationBundle\": {\n    \"attestationId\": \"{{attestationId}}\",\n    \"canonicalPayload\": \"{\\\"protocol\\\":\\\"NEXUSPAY_ZK_ATTEST_V2\\\",\\\"agreementId\\\":\\\"{{agreementId}}\\\",\\\"milestoneId\\\":\\\"M1\\\",\\\"artifactDigest\\\":\\\"sha256:7f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069\\\",\\\"metrics\\\":{\\\"totalTests\\\":24,\\\"passedTests\\\":24,\\\"coveragePercent\\\":96,\\\"buildPassed\\\":true,\\\"lintErrors\\\":0},\\\"runnerOrigin\\\":\\\"enterprise-private-ci.local\\\",\\\"sourceCodeTransmitted\\\":false,\\\"nonce\\\":\\\"98218274\\\",\\\"timestamp\\\":\\\"2026-11-09T10:00:00.000Z\\\"}\",\n    \"hmacSha256Signature\": \"c4583921b...\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/privacy/verify-zk-proof",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "privacy", "verify-zk-proof"]
+            },
+            "description": "Verifies HMAC signature without inspecting confidential source code."
+          }
+        },
+        {
+          "name": "4.5 Retrieve Persisted ZK Certificate by ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200 or 404', function () {",
+                  "    pm.expect([200, 404]).to.include(pm.response.code);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/privacy/attestation/{{attestationId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "privacy", "attestation", "{{attestationId}}"]
+            },
+            "description": "Queries stored ZK attestation audit record from SQLite."
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. AI Dispute Arbitration",
+      "item": [
+        {
+          "name": "5.1 Convene AI Arbitration Tribunal",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Tribunal ruling recommends equitable settlement split', function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.ruling).to.be.a('string');",
+                  "    pm.expect(json.recommendedSplit).to.be.an('object');",
+                  "    pm.expect(json.recommendedSplit.freelancerPayoutUsd).to.be.above(0);",
+                  "    pm.expect(json.recommendedSplit.clientRefundUsd).to.be.above(0);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"contract\": {\n    \"id\": \"SMA-3204\",\n    \"title\": \"Fintech Mobile UI\",\n    \"totalBudget\": 500\n  },\n  \"disputeReason\": \"Secondary tablet responsiveness disputed\",\n  \"clientClaim\": \"Tablet layout overflows on iPad Mini viewport.\",\n  \"freelancerClaim\": \"Core PayPal checkout and 8 mobile screens delivered and verified.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/arbitrate-dispute",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "arbitrate-dispute"]
+            },
+            "description": "Convenes AI Arbitration Tribunal to settle contested contract scope."
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. AG Grid Ledger & Webhooks",
+      "item": [
+        {
+          "name": "6.1 Get AG Grid Transaction Ledger",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Transactions array returned from SQLite store', function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.transactions).to.be.an('array');",
+                  "    pm.expect(json.totalCount).to.be.a('number');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/transactions",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "transactions"]
+            },
+            "description": "Retrieves persistent transaction ledger powering AG Grid v33."
+          }
+        },
+        {
+          "name": "6.2 Inbound PayPal Webhook Ingestion",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Webhook event ingested and status is PROCESSED or DUPLICATE', function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.received).to.be.true;",
+                  "    pm.expect(json.status).to.be.oneOf(['PROCESSED', 'DUPLICATE']);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "paypal-auth-algo",
+                "value": "SHA256withRSA"
+              },
+              {
+                "key": "paypal-transmission-id",
+                "value": "pm-webhook-{{$guid}}"
+              },
+              {
+                "key": "paypal-cert-url",
+                "value": "https://api-m.sandbox.paypal.com/v1/notifications/certs/CERT-360caa42-fca2b592-72c050a4"
+              },
+              {
+                "key": "paypal-transmission-sig",
+                "value": "iXwVjSamplePostmanSignature=="
+              },
+              {
+                "key": "paypal-transmission-time",
+                "value": "2026-11-09T10:15:00Z"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"WH-PM-{{$timestamp}}\",\n  \"event_type\": \"CHECKOUT.ORDER.APPROVED\",\n  \"resource_type\": \"checkout-order\",\n  \"summary\": \"PayPal Sandbox Order Approved (Postman Ingestion)\",\n  \"resource\": {\n    \"id\": \"8XP-POSTMAN-ORDER\",\n    \"status\": \"APPROVED\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/paypal/webhook",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "paypal", "webhook"]
+            },
+            "description": "Ingests inbound PayPal webhook event with header validation."
+          }
+        },
+        {
+          "name": "6.3 Zapier Webhook Bridge",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Zapier event logged in database', function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.success).to.be.true;",
+                  "    pm.expect(json.eventId).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"event\": \"ESCROW_PAYOUT_TRIGGERED\",\n  \"payload\": {\n    \"agreementId\": \"{{agreementId}}\",\n    \"amount\": 350,\n    \"currency\": \"USD\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/webhooks/zapier",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "webhooks", "zapier"]
+            },
+            "description": "Dispatches webhook event via Zapier bridge."
+          }
+        },
+        {
+          "name": "6.4 Query Inbound Webhook Event Audit Log",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Events array returned', function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.events).to.be.an('array');",
+                  "    pm.expect(json.totalCount).to.be.a('number');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/webhooks/events?limit=25",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "webhooks", "events"],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "25"
+                }
+              ]
+            },
+            "description": "Queries recorded webhook events for audit and deduplication verification."
+          }
+        }
+      ]
+    }
+  ]
+}

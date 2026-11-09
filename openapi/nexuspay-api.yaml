@@ -1,0 +1,1794 @@
+openapi: 3.1.0
+info:
+  title: NexusPay AI — PayPal Agentic Commerce & Zero-Knowledge Escrow API
+  version: 2.0.0
+  summary: Autonomous Agentic Commerce, Confidential Zero-Knowledge NDA Verification & Milestone Escrow Powered by PayPal
+  description: |
+    ### NexusPay AI — Autonomous Agentic Commerce & Confidential Milestone Escrow Protocol
+    **Official Submission for the PayPal AI Hackathon 2026**  
+    **Author**: Aristide Bienvenu EMCTHEU (`@arispacco`)  
+    **License**: MIT License  
+
+    NexusPay AI empowers autonomous AI buyer and seller agents (*Atlas* and *Nova*) to negotiate smart commercial agreements, lock escrow funds via PayPal Orders v2, verify technical deliverables through confidential Zero-Knowledge proofs or ephemeral RAM DLP inspection, and autonomously disburse payouts or arbitrate disputes.
+
+    #### Key Architectural Capabilities:
+    1. **Official `@paypal/agent-toolkit` MCP Server**: Exposes 10 official PayPal MCP tools (`create_order`, `pay_order`, `create_invoice`, `list_invoices`, `send_invoice`, `list_disputes`, `get_dispute`, etc.) with live telemetry.
+    2. **Dual-Track Confidentiality**:
+       - *Mode A: Ephemeral RAM DLP Shield & ZDR*: Redacts API secrets, PayPal tokens, GitHub PATs, and PII in `<1ms` RAM before LLM inspection.
+       - *Mode B: Strict NDA Zero-Knowledge Attestation*: 0% source code transmitted; HMAC-SHA256 signed test attestations verify deliverables without proprietary leak.
+    3. **Two-Step Milestone Escrow**: Supports `intent: 'AUTHORIZE'` and `intent: 'CAPTURE'` with granular milestone releases.
+    4. **Inbound PayPal Webhooks**: Cryptographic signature validation with event idempotency.
+    5. **AI Arbitration Tribunal**: Autonomous dispute settlement with 1-click PayPal split refunds.
+  contact:
+    name: Aristide Bienvenu EMCTHEU
+    url: https://github.com/arispacco/nexuspay-ai
+    email: 207110828+arispacco@users.noreply.github.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:3000
+    description: Local Development & Judge Sandbox Server
+  - url: https://nexuspay-ai.onrender.com
+    description: Production Render Web Service
+
+tags:
+  - name: System & Health
+    description: Service health readiness probes and system capability metadata
+  - name: PayPal MCP Toolkit
+    description: Official @paypal/agent-toolkit MCP tool discovery and live execution telemetry
+  - name: Agent Negotiation & KYA
+    description: Multi-agent negotiation, KYA cryptographic passports, and contract persistence
+  - name: PayPal Escrow Lifecycle
+    description: Orders v2 escrow deposit, two-step authorization, invoice creation, captures, and refunds
+  - name: Privacy & Zero-Knowledge
+    description: Ephemeral RAM DLP secret redaction, ZDR certificates, and local ZK attestation verification
+  - name: AI Dispute Arbitration
+    description: Autonomous contract dispute arbitration, evidence analysis, and split refunds
+  - name: Financial & Webhook Ledger
+    description: AG Grid persistent transaction records, milestone disbursements, and inbound webhook processing
+
+paths:
+  /api/health:
+    get:
+      tags:
+        - System & Health
+      summary: Health check & MCP engine status
+      description: Returns service health, runtime version, and registered PayPal Agent Toolkit MCP tools.
+      operationId: getHealthStatus
+      responses:
+        '200':
+          description: Service is healthy and PayPal MCP toolkit is initialized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              examples:
+                healthy:
+                  summary: Standard healthy probe
+                  value:
+                    status: healthy
+                    timestamp: "2026-11-09T10:00:00.000Z"
+                    service: "NexusPay AI Agentic Escrow Protocol"
+                    version: "2.0.0"
+                    paypalMcpSdk: "@paypal/agent-toolkit/mcp"
+                    registeredMcpTools:
+                      - create_order
+                      - pay_order
+                      - create_invoice
+                      - list_invoices
+                      - send_invoice
+                      - list_disputes
+                      - get_dispute
+
+  /api/paypal/mcp-tools:
+    get:
+      tags:
+        - PayPal MCP Toolkit
+      summary: PayPal MCP capabilities & execution telemetry
+      description: Returns all registered @paypal/agent-toolkit MCP tools and real-time execution telemetry buffer.
+      operationId: getPayPalMcpTools
+      responses:
+        '200':
+          description: List of MCP tools and telemetry ring buffer.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/McpCapabilitiesResponse'
+
+  /api/negotiate:
+    post:
+      tags:
+        - Agent Negotiation & KYA
+      summary: Autonomous Agent-to-Agent KYA negotiation
+      description: Initiates RFP mandate negotiation between Buyer Agent *Atlas* and Seller Agent *Nova*, producing a co-signed Smart Milestone Agreement with KYA Passports.
+      operationId: runNegotiation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NegotiateRequest'
+            examples:
+              checkoutService:
+                summary: Autonomous Checkout Microservice
+                value:
+                  projectTitle: "Autonomous Checkout Microservice"
+                  projectScope: "React + PayPal Orders v2 + Webhook verification"
+                  initialBudget: 350
+                  freelancerSkills: "React, Node.js, PayPal SDK"
+                  ndaRequired: true
+      responses:
+        '200':
+          description: Co-signed Smart Milestone Agreement and full multi-agent transcript.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NegotiateResponse'
+        '500':
+          description: Agent negotiation failure.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/paypal/create-order:
+    post:
+      tags:
+        - PayPal Escrow Lifecycle
+      summary: Create PayPal Escrow Order (Deposit / Two-Step Auth)
+      description: "Creates a PayPal Orders v2 order locking funds in escrow (intent: 'CAPTURE' or two-step intent: 'AUTHORIZE'). Automatically logs transaction to AG Grid ledger."
+      operationId: createPayPalOrder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOrderRequest'
+            examples:
+              escrowDeposit:
+                summary: Standard $350 Escrow Hold
+                value:
+                  amount: 350
+                  currency: "USD"
+                  description: "NexusPay Milestone Escrow"
+                  customId: "SMA-DEMO-01"
+                  intent: "CAPTURE"
+                  privacyMode: "ZK-NDA"
+      responses:
+        '200':
+          description: PayPal Order created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateOrderResponse'
+        '500':
+          description: Order creation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/paypal/create-invoice:
+    post:
+      tags:
+        - PayPal Escrow Lifecycle
+      summary: Generate PayPal Smart Milestone Invoice
+      description: Issues a formal PayPal Invoicing v2 draft itemizing contract milestones with automated payment links.
+      operationId: createPayPalInvoice
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateInvoiceRequest'
+            examples:
+              milestoneInvoice:
+                summary: Itemized Milestone Invoice
+                value:
+                  agreement:
+                    id: "SMA-DEMO-01"
+                    totalBudget: 350
+                    currency: "USD"
+                    milestones:
+                      - name: "Core Architecture & Webhooks"
+                        amount: 150
+                      - name: "Frontend AG Grid & PayPal React Checkout"
+                        amount: 200
+                  recipientEmail: "freelancer-sandbox@business.example.com"
+      responses:
+        '200':
+          description: PayPal Invoice created and logged.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateInvoiceResponse'
+        '500':
+          description: Invoice generation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/paypal/capture-order:
+    post:
+      tags:
+        - PayPal Escrow Lifecycle
+      summary: Capture PayPal Escrow Order (Milestone Auto-Release)
+      description: Captures locked PayPal funds upon successful deliverable audit or verified Zero-Knowledge attestation. Updates persistent ledger and milestone state.
+      operationId: capturePayPalOrder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CaptureOrderRequest'
+            examples:
+              autoRelease:
+                summary: Instant Auto-Release on 95% AI Score
+                value:
+                  orderId: "8XP1298491823"
+                  agreementId: "SMA-DEMO-01"
+                  score: 95
+                  privacyMode: "ZK-NDA"
+                  proofHash: "sha256:7f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069"
+      responses:
+        '200':
+          description: PayPal Order captured and disbursement completed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CaptureOrderResponse'
+        '500':
+          description: Order capture failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/paypal/refund-order:
+    post:
+      tags:
+        - PayPal Escrow Lifecycle
+      summary: Refund PayPal Order / Arbitrated Dispute Settlement
+      description: Issues a full or partial PayPal capture refund resolving contested contract scope based on AI Arbitration Tribunal rulings.
+      operationId: refundPayPalOrder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefundOrderRequest'
+            examples:
+              partialRefund:
+                summary: 75/25 Split Settlement Refund
+                value:
+                  captureId: "CAP-9821728192"
+                  amount: 125
+                  reason: "AI Arbitration Tribunal Settlement Ruling (75/25 Buyer Favor)"
+                  agreementId: "SMA-3204"
+      responses:
+        '200':
+          description: Refund processed and ledger updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RefundOrderResponse'
+        '500':
+          description: Refund failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/verify-deliverable:
+    post:
+      tags:
+        - Privacy & Zero-Knowledge
+      summary: Verify Deliverable with Ephemeral RAM DLP & AI Engine
+      description: Scrubs sensitive secrets and PII in volatile RAM (<1ms) before running deterministic static AST inspection or live Gemini 2.5 Flash evaluation.
+      operationId: verifyDeliverable
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyDeliverableRequest'
+            examples:
+              codeDeliverable:
+                summary: Production React + PayPal Hook
+                value:
+                  milestone: "M1: PayPal Checkout Integration"
+                  deliverableType: "code"
+                  deliverableContent: "import React from 'react'; export function Checkout() { return <div id='paypal-button-container'></div>; }"
+                  repoUrl: "https://github.com/arispacco/nexuspay-ai"
+      responses:
+        '200':
+          description: Deliverable compliance evaluation and criteria breakdown.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerifyDeliverableResponse'
+        '500':
+          description: Deliverable evaluation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/privacy/sanitize:
+    post:
+      tags:
+        - Privacy & Zero-Knowledge
+      summary: Live Ephemeral RAM DLP Sanitization Preview
+      description: Previews real-time RAM secret masking for API tokens, PayPal secrets, JWTs, emails, and internal IPs with cryptographic Zero-Data-Retention (ZDR) certificate.
+      operationId: sanitizeDeliverable
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DlpSanitizeRequest'
+            examples:
+              secretInspection:
+                summary: Masking sk_test and PayPal credentials
+                value:
+                  content: "const KEY = 'sk_test_999888777666'; const PP_SECRET = 'EA12345678901234567890123456';"
+      responses:
+        '200':
+          description: Masked content with redaction count and ZDR certificate.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DlpSanitizeResponse'
+
+  /api/privacy/generate-zk-proof:
+    post:
+      tags:
+        - Privacy & Zero-Knowledge
+      summary: Generate Zero-Knowledge Attestation Proof (Private CI)
+      description: Simulates private workstation/CI runner generating an HMAC-SHA256 signed test attestation bundle. Zero lines of proprietary source code leave the client environment.
+      operationId: generateZkProof
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateZkProofRequest'
+            examples:
+              privateAttestation:
+                summary: 100% Passing Private CI Bundle
+                value:
+                  agreementId: "SMA-NDA-600"
+                  milestoneId: "M1"
+                  testSuiteSummary:
+                    totalTests: 24
+                    passedTests: 24
+                    coveragePercent: 96
+                    buildPassed: true
+                    lintErrors: 0
+                  ndaDomain: "enterprise-private-ci.local"
+      responses:
+        '200':
+          description: Cryptographic Zero-Knowledge Attestation Bundle.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ZkAttestationBundle'
+
+  /api/privacy/verify-zk-proof:
+    post:
+      tags:
+        - Privacy & Zero-Knowledge
+      summary: Verify Zero-Knowledge Attestation Proof (Zero Code Exposed)
+      description: Validates HMAC-SHA256 signature in constant time (`crypto.timingSafeEqual`). Blocks tampered proofs and authorizes autonomous PayPal escrow unlock.
+      operationId: verifyZkProof
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyZkProofRequest'
+      responses:
+        '200':
+          description: ZK verification outcome, scoring breakdown, and payout verdict.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerifyZkProofResponse'
+
+  /api/privacy/attestation/{id}:
+    get:
+      tags:
+        - Privacy & Zero-Knowledge
+      summary: Retrieve Persisted ZK Attestation Certificate
+      description: Fetches a stored Zero-Knowledge cryptographic audit certificate by attestation ID.
+      operationId: getZkAttestationById
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique Attestation ID (e.g. ZKA-9F28A1C4)
+          schema:
+            type: string
+            example: "ZKA-9F28A1C4"
+      responses:
+        '200':
+          description: Persisted ZK certificate found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ZkAttestationRecord'
+        '404':
+          description: Attestation not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/arbitrate-dispute:
+    post:
+      tags:
+        - AI Dispute Arbitration
+      summary: Convene AI Dispute Arbitration Tribunal
+      description: Multi-agent dispute arbitration assessing buyer and freelancer claims against the signed contract specifications. Yields split refund recommendation.
+      operationId: arbitrateDispute
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ArbitrateDisputeRequest'
+            examples:
+              scopeDispute:
+                summary: Contested Mobile Responsive Breakpoints
+                value:
+                  contract:
+                    id: "SMA-3204"
+                    title: "Fintech Mobile Checkout Microservice"
+                    totalBudget: 500
+                  disputeReason: "Secondary tablet responsiveness disputed"
+                  clientClaim: "Tablet layout overflows on iPad Mini viewport."
+                  freelancerClaim: "Core mobile and desktop layouts 100% delivered with approved PayPal Smart Buttons."
+      responses:
+        '200':
+          description: Arbitration ruling with percentage split and settlement plan.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ArbitrateDisputeResponse'
+        '500':
+          description: Arbitration failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/transactions:
+    get:
+      tags:
+        - Financial & Webhook Ledger
+      summary: Get Financial Escrow Ledger (AG Grid data source)
+      description: Fetches all transactions from persistent SQLite store formatted for AG Grid v33 display.
+      operationId: getLedgerTransactions
+      responses:
+        '200':
+          description: Complete list of ledger transactions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionsResponse'
+
+  /api/agreements:
+    get:
+      tags:
+        - Agent Negotiation & KYA
+      summary: List all persistent Smart Milestone Agreements
+      description: Returns all agreements stored in the SQLite database with milestone statuses.
+      operationId: listAgreements
+      responses:
+        '200':
+          description: List of stored agreements.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgreementsResponse'
+
+  /api/agreements/{id}:
+    get:
+      tags:
+        - Agent Negotiation & KYA
+      summary: Fetch Smart Milestone Agreement by ID
+      description: Retrieves a specific smart commercial agreement including its milestones, KYA mandates, and escrow status.
+      operationId: getAgreementById
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Agreement ID (e.g. SMA-DEMO-01)
+          schema:
+            type: string
+            example: "SMA-DEMO-01"
+      responses:
+        '200':
+          description: Agreement details retrieved.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Agreement'
+        '404':
+          description: Agreement not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/agreements/{id}/milestones/{mId}/release:
+    post:
+      tags:
+        - Financial & Webhook Ledger
+      summary: Granular Milestone Payout Release
+      description: Captures locked funds for a specific individual milestone within an agreement.
+      operationId: releaseMilestonePayout
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Agreement ID
+          schema:
+            type: string
+            example: "SMA-DEMO-01"
+        - name: mId
+          in: path
+          required: true
+          description: Milestone ID (e.g. M1)
+          schema:
+            type: string
+            example: "M1"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MilestoneReleaseRequest'
+      responses:
+        '200':
+          description: Milestone funds released successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MilestoneReleaseResponse'
+        '404':
+          description: Agreement or milestone not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Payout release error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/paypal/webhook:
+    post:
+      tags:
+        - Financial & Webhook Ledger
+      summary: Inbound PayPal Webhook Gateway
+      description: Ingests inbound PayPal webhook events (`CHECKOUT.ORDER.APPROVED`, `PAYMENT.CAPTURE.COMPLETED`, `PAYMENT.CAPTURE.REFUNDED`, `CUSTOMER.DISPUTE.CREATED`). Validates PayPal headers and ensures event idempotency.
+      operationId: handlePayPalWebhook
+      parameters:
+        - name: paypal-auth-algo
+          in: header
+          required: true
+          description: PayPal signature algorithm (e.g. SHA256withRSA)
+          schema:
+            type: string
+            example: "SHA256withRSA"
+        - name: paypal-transmission-id
+          in: header
+          required: true
+          description: Unique transmission UUID
+          schema:
+            type: string
+            example: "c46327b0-8a8f-11eb-98d0-03ec7b7ef66b"
+        - name: paypal-cert-url
+          in: header
+          required: true
+          description: URL pointing to PayPal trusted cert
+          schema:
+            type: string
+            example: "https://api-m.sandbox.paypal.com/v1/notifications/certs/CERT-360caa42-fca2b592-72c050a4"
+        - name: paypal-transmission-sig
+          in: header
+          required: true
+          description: Base64 transmission signature
+          schema:
+            type: string
+            example: "iXwVj...base64Signature=="
+        - name: paypal-transmission-time
+          in: header
+          required: true
+          description: Transmission timestamp (ISO 8601)
+          schema:
+            type: string
+            example: "2026-11-09T10:15:00Z"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PayPalWebhookEvent'
+      responses:
+        '200':
+          description: Webhook processed or recognized as duplicate.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PayPalWebhookResponse'
+        '400':
+          description: Missing required PayPal webhook headers.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Webhook signature verification failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Webhook processing error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/webhooks/zapier:
+    post:
+      tags:
+        - Financial & Webhook Ledger
+      summary: Zapier Webhook Bridge
+      description: Outbound webhook dispatcher forwarding escrow deposits, auto-releases, and dispute resolutions to external Zapier triggers.
+      operationId: forwardZapierWebhook
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ZapierWebhookRequest'
+      responses:
+        '200':
+          description: Event dispatched to Zapier.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ZapierWebhookResponse'
+
+  /api/webhooks/events:
+    get:
+      tags:
+        - Financial & Webhook Ledger
+      summary: View logged webhook audit events
+      description: Queries idempotently recorded webhook events for auditing.
+      operationId: getWebhookEvents
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of events to return (default 50)
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: Logged webhook events.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookEventsResponse'
+
+  /api/paypal/client-token:
+    get:
+      tags:
+        - PayPal Escrow Lifecycle
+      summary: Generate PayPal Client Token
+      description: Generates an ephemeral SDK client token for `@paypal/react-paypal-js` Smart Buttons rendering.
+      operationId: getPayPalClientToken
+      responses:
+        '200':
+          description: Ephemeral client token generated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientTokenResponse'
+
+  /api/validate-paypal:
+    post:
+      tags:
+        - PayPal Escrow Lifecycle
+      summary: Validate PayPal Sandbox Credentials
+      description: Validates client ID and client secret against PayPal Sandbox OAuth2 endpoint.
+      operationId: validatePayPalCredentials
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ValidatePayPalRequest'
+      responses:
+        '200':
+          description: Credential validation response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidatePayPalResponse'
+
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      required:
+        - status
+        - timestamp
+        - service
+        - version
+        - paypalMcpSdk
+        - registeredMcpTools
+      properties:
+        status:
+          type: string
+          example: healthy
+        timestamp:
+          type: string
+          format: date-time
+          example: "2026-11-09T10:00:00.000Z"
+        service:
+          type: string
+          example: "NexusPay AI Agentic Escrow Protocol"
+        version:
+          type: string
+          example: "2.0.0"
+        paypalMcpSdk:
+          type: string
+          example: "@paypal/agent-toolkit/mcp"
+        registeredMcpTools:
+          type: array
+          items:
+            type: string
+          example: ["create_order", "pay_order", "create_invoice", "list_invoices", "send_invoice", "list_disputes", "get_dispute"]
+
+    McpCapabilitiesResponse:
+      type: object
+      properties:
+        sdkPackage:
+          type: string
+          example: "@paypal/agent-toolkit/mcp"
+        sdkVersion:
+          type: string
+          example: "1.11.0"
+        sandbox:
+          type: boolean
+          example: true
+        registeredTools:
+          type: array
+          items:
+            type: string
+          example: ["create_order", "pay_order", "create_invoice", "list_invoices", "send_invoice", "list_disputes", "get_dispute"]
+        telemetryCount:
+          type: integer
+          example: 12
+        telemetry:
+          type: array
+          items:
+            $ref: '#/components/schemas/McpTelemetryEntry'
+
+    McpTelemetryEntry:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "MCP-82194-491"
+        timestamp:
+          type: string
+          format: date-time
+        tool:
+          type: string
+          example: "create_order"
+        endpoint:
+          type: string
+          example: "/v2/checkout/orders"
+        method:
+          type: string
+          example: "POST"
+        status:
+          type: integer
+          example: 201
+        mode:
+          type: string
+          example: "sandbox_emulator"
+        latencyMs:
+          type: number
+          example: 24
+        summary:
+          type: string
+          example: "Locked $350.00 USD in PayPal Escrow (8XP928172)"
+        payloadPreview:
+          type: object
+
+    NegotiateRequest:
+      type: object
+      required:
+        - projectTitle
+        - projectScope
+        - initialBudget
+      properties:
+        projectTitle:
+          type: string
+          example: "Autonomous Checkout Microservice"
+        projectScope:
+          type: string
+          example: "React + PayPal Orders v2 + Webhook verification"
+        initialBudget:
+          type: number
+          example: 350
+        freelancerSkills:
+          type: string
+          example: "React, Node.js, PayPal SDK"
+        ndaRequired:
+          type: boolean
+          default: true
+        geminiApiKey:
+          type: string
+          description: Optional Gemini 2.5 Flash API Key for live LLM reasoning
+
+    NegotiateResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        agreement:
+          $ref: '#/components/schemas/Agreement'
+        transcript:
+          type: array
+          items:
+            $ref: '#/components/schemas/TranscriptEntry'
+        kyaPassports:
+          $ref: '#/components/schemas/KyaPassports'
+
+    Agreement:
+      type: object
+      required:
+        - id
+        - title
+        - totalBudget
+        - milestones
+      properties:
+        id:
+          type: string
+          example: "SMA-DEMO-01"
+        title:
+          type: string
+          example: "Autonomous Checkout Microservice"
+        totalBudget:
+          type: number
+          example: 350
+        currency:
+          type: string
+          default: "USD"
+        ndaProtected:
+          type: boolean
+          example: true
+        privacyMode:
+          type: string
+          enum: [ZK-NDA, ZDR-DLP]
+          example: "ZK-NDA"
+        escrowStatus:
+          type: string
+          example: "PENDING_FUNDING"
+        paypalOrderId:
+          type: string
+          nullable: true
+          example: "8XP9281728391"
+        milestones:
+          type: array
+          items:
+            $ref: '#/components/schemas/Milestone'
+
+    Milestone:
+      type: object
+      required:
+        - id
+        - name
+        - amount
+      properties:
+        id:
+          type: string
+          example: "M1"
+        name:
+          type: string
+          example: "Core Architecture & Webhooks"
+        amount:
+          type: number
+          example: 150
+        status:
+          type: string
+          enum: [PENDING, ESCROW_LOCKED, RELEASED, DISPUTED]
+          example: "PENDING"
+        aiScore:
+          type: number
+          nullable: true
+          example: 95
+        paypalCaptureId:
+          type: string
+          nullable: true
+          example: "CAP-9821728192"
+
+    KyaPassports:
+      type: object
+      properties:
+        buyerPassport:
+          $ref: '#/components/schemas/KyaPassportBuyer'
+        sellerPassport:
+          $ref: '#/components/schemas/KyaPassportSeller'
+
+    KyaPassportBuyer:
+      type: object
+      properties:
+        kyaId:
+          type: string
+          example: "KYA-PP-ATLAS-094"
+        agentName:
+          type: string
+          example: "Atlas v2.4 (Buyer Delegate)"
+        principalEntity:
+          type: string
+          example: "Verified PayPal Business Principal"
+        maxAutonomousSpendUsd:
+          type: number
+          example: 438
+        allowedActions:
+          type: array
+          items:
+            type: string
+          example: ["paypal.orders.create", "paypal.invoicing.create", "paypal.orders.capture"]
+        pciScope:
+          type: string
+          example: "ORCHESTRATOR_ONLY_NO_RAW_PAN"
+        mandateSignature:
+          type: string
+          example: "ed25519:e4f829..."
+
+    KyaPassportSeller:
+      type: object
+      properties:
+        kyaId:
+          type: string
+          example: "KYA-PP-NOVA-318"
+        agentName:
+          type: string
+          example: "Nova v3.1 (Freelancer Delegate)"
+        principalEntity:
+          type: string
+          example: "Verified PayPal Merchant / Creator"
+        allowedActions:
+          type: array
+          items:
+            type: string
+          example: ["nexuspay.deliverable.submit", "nexuspay.zk.attest", "paypal.payouts.receive"]
+        mandateSignature:
+          type: string
+          example: "ed25519:7c91a0..."
+
+    TranscriptEntry:
+      type: object
+      properties:
+        speaker:
+          type: string
+          example: "Atlas (Buyer Agent)"
+        avatar:
+          type: string
+          example: "🤖"
+        message:
+          type: string
+          example: "Mandate received: commissioning React + PayPal Orders v2 integration under strict NDA."
+        timestamp:
+          type: string
+          format: date-time
+
+    CreateOrderRequest:
+      type: object
+      required:
+        - amount
+      properties:
+        amount:
+          type: number
+          example: 350
+        currency:
+          type: string
+          default: "USD"
+        description:
+          type: string
+          example: "NexusPay Milestone Escrow"
+        customId:
+          type: string
+          example: "SMA-DEMO-01"
+        intent:
+          type: string
+          enum: [CAPTURE, AUTHORIZE]
+          default: "CAPTURE"
+        privacyMode:
+          type: string
+          enum: [ZK-NDA, ZDR-DLP]
+          default: "ZK-NDA"
+
+    CreateOrderResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        mode:
+          type: string
+          example: "simulated_sandbox"
+        orderId:
+          type: string
+          example: "8XP19828471"
+        status:
+          type: string
+          example: "CREATED"
+        intent:
+          type: string
+          example: "CAPTURE"
+        escrowState:
+          type: string
+          example: "LOCKED"
+        amount:
+          type: object
+          properties:
+            currency:
+              type: string
+              example: "USD"
+            value:
+              type: string
+              example: "350.00"
+        links:
+          type: array
+          items:
+            type: object
+            properties:
+              href:
+                type: string
+              rel:
+                type: string
+              method:
+                type: string
+
+    CreateInvoiceRequest:
+      type: object
+      required:
+        - agreement
+      properties:
+        agreement:
+          $ref: '#/components/schemas/Agreement'
+        recipientEmail:
+          type: string
+          format: email
+          default: "freelancer-sandbox@business.example.com"
+
+    CreateInvoiceResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        mode:
+          type: string
+          example: "simulated_sandbox"
+        invoiceId:
+          type: string
+          example: "INV2-SBX-982182"
+        invoiceNumber:
+          type: string
+          example: "INV-982182"
+        status:
+          type: string
+          example: "SENT_TO_SANDBOX"
+        amount:
+          type: number
+          example: 350
+        currency:
+          type: string
+          example: "USD"
+        payUrl:
+          type: string
+          example: "https://www.sandbox.paypal.com/invoice/p/#INV2SBX982182"
+
+    CaptureOrderRequest:
+      type: object
+      required:
+        - orderId
+      properties:
+        orderId:
+          type: string
+          example: "8XP19828471"
+        agreementId:
+          type: string
+          example: "SMA-DEMO-01"
+        score:
+          type: number
+          example: 95
+        privacyMode:
+          type: string
+          example: "ZK-NDA"
+        proofHash:
+          type: string
+          example: "sha256:7f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069"
+        milestoneId:
+          type: string
+          example: "M1"
+
+    CaptureOrderResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        mode:
+          type: string
+          example: "simulated_sandbox"
+        orderId:
+          type: string
+          example: "8XP19828471"
+        captureId:
+          type: string
+          example: "CAP-892182918"
+        status:
+          type: string
+          example: "COMPLETED"
+        releasedAt:
+          type: string
+          format: date-time
+        payoutMethod:
+          type: string
+          example: "PayPal Instant Payout"
+
+    RefundOrderRequest:
+      type: object
+      required:
+        - captureId
+      properties:
+        captureId:
+          type: string
+          example: "CAP-892182918"
+        amount:
+          type: number
+          example: 125
+        reason:
+          type: string
+          example: "AI Arbitration Tribunal Settlement Ruling (75/25 Buyer Favor)"
+        agreementId:
+          type: string
+          example: "SMA-3204"
+
+    RefundOrderResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        mode:
+          type: string
+          example: "simulated_sandbox"
+        refundId:
+          type: string
+          example: "REF-98129841"
+        status:
+          type: string
+          example: "COMPLETED"
+        refundAmount:
+          type: string
+          example: "$125.00"
+        reason:
+          type: string
+          example: "AI Arbitration Tribunal Settlement Ruling"
+
+    VerifyDeliverableRequest:
+      type: object
+      required:
+        - deliverableContent
+      properties:
+        milestone:
+          type: string
+          example: "M1: PayPal Checkout Integration"
+        deliverableType:
+          type: string
+          enum: [code, url, repo]
+          default: "code"
+        deliverableContent:
+          type: string
+          example: "import React from 'react'; export function Checkout() { return <div id='paypal-button-container'></div>; }"
+        repoUrl:
+          type: string
+          format: uri
+          example: "https://github.com/arispacco/nexuspay-ai"
+
+    VerifyDeliverableResponse:
+      type: object
+      properties:
+        overallScore:
+          type: number
+          example: 94
+        verdict:
+          type: string
+          enum: [AUTO_RELEASE_PAYOUT, REVISE_DELIVERABLE, DISPUTE_RECOMMENDED]
+          example: "AUTO_RELEASE_PAYOUT"
+        sanitizationResult:
+          $ref: '#/components/schemas/DlpSanitizeResponse'
+        criteriaBreakdown:
+          type: array
+          items:
+            type: object
+            properties:
+              criterion:
+                type: string
+              passed:
+                type: boolean
+              score:
+                type: number
+              notes:
+                type: string
+
+    DlpSanitizeRequest:
+      type: object
+      required:
+        - content
+      properties:
+        content:
+          type: string
+          example: "const KEY = 'sk_test_999888777666'; export async function run() {}"
+
+    DlpSanitizeResponse:
+      type: object
+      properties:
+        scrubbedContent:
+          type: string
+          example: "const KEY = '[REDACTED_API_SECRET_KEY_1]'; export async function run() {}"
+        redactionCount:
+          type: integer
+          example: 1
+        detections:
+          type: array
+          items:
+            $ref: '#/components/schemas/DlpDetection'
+        zdrCertificate:
+          $ref: '#/components/schemas/ZdrCertificate'
+
+    DlpDetection:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "DLP-1"
+        type:
+          type: string
+          example: "API_SECRET_KEY"
+        label:
+          type: string
+          example: "Live/Test Secret Key"
+        preview:
+          type: string
+          example: "sk_l***66"
+
+    ZdrCertificate:
+      type: object
+      properties:
+        mode:
+          type: string
+          example: "EPHEMERAL_RAM_ONLY"
+        persistedToDisk:
+          type: boolean
+          example: false
+        llmTrainingOptOut:
+          type: boolean
+          example: true
+        rawArtifactDigest:
+          type: string
+          example: "sha256:d82e18f..."
+        scrubbedDigest:
+          type: string
+          example: "sha256:4a8b29c..."
+        sanitizationLatencyMs:
+          type: number
+          example: 0.42
+        destructionTimestamp:
+          type: string
+          format: date-time
+
+    GenerateZkProofRequest:
+      type: object
+      required:
+        - agreementId
+      properties:
+        agreementId:
+          type: string
+          example: "SMA-NDA-600"
+        milestoneId:
+          type: string
+          default: "M1"
+          example: "M1"
+        testSuiteSummary:
+          $ref: '#/components/schemas/ZkMetrics'
+        ndaDomain:
+          type: string
+          default: "enterprise-private-ci.local"
+          example: "enterprise-private-ci.local"
+
+    ZkMetrics:
+      type: object
+      properties:
+        totalTests:
+          type: integer
+          example: 24
+        passedTests:
+          type: integer
+          example: 24
+        coveragePercent:
+          type: number
+          example: 96
+        buildPassed:
+          type: boolean
+          example: true
+        lintErrors:
+          type: integer
+          example: 0
+
+    ZkAttestationBundle:
+      type: object
+      required:
+        - attestationId
+        - canonicalPayload
+        - hmacSha256Signature
+      properties:
+        attestationId:
+          type: string
+          example: "ZKA-9F28A1C4"
+        payload:
+          $ref: '#/components/schemas/ZkPayload'
+        canonicalPayload:
+          type: string
+          example: "{\"protocol\":\"NEXUSPAY_ZK_ATTEST_V2\",\"agreementId\":\"SMA-NDA-600\"...}"
+        hmacSha256Signature:
+          type: string
+          example: "6c9d81fe80b91e779a1f26a79e43f1d8..."
+        publicVerificationKeyHint:
+          type: string
+          example: "HMAC-SHA256(NEXUSPAY_ZK_ATTEST_V2)"
+
+    ZkPayload:
+      type: object
+      properties:
+        protocol:
+          type: string
+          example: "NEXUSPAY_ZK_ATTEST_V2"
+        agreementId:
+          type: string
+          example: "SMA-NDA-600"
+        milestoneId:
+          type: string
+          example: "M1"
+        artifactDigest:
+          type: string
+          example: "sha256:88a1b2..."
+        metrics:
+          $ref: '#/components/schemas/ZkMetrics'
+        runnerOrigin:
+          type: string
+          example: "enterprise-private-ci.local"
+        sourceCodeTransmitted:
+          type: boolean
+          example: false
+        nonce:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+
+    VerifyZkProofRequest:
+      type: object
+      required:
+        - attestationBundle
+      properties:
+        attestationBundle:
+          $ref: '#/components/schemas/ZkAttestationBundle'
+
+    VerifyZkProofResponse:
+      type: object
+      properties:
+        valid:
+          type: boolean
+          example: true
+        verificationId:
+          type: string
+          example: "ZK-VER-982182"
+        privacyMode:
+          type: string
+          example: "ZERO_KNOWLEDGE_NDA"
+        sourceCodeExposed:
+          type: boolean
+          example: false
+        overallScore:
+          type: number
+          example: 98
+        verdict:
+          type: string
+          enum: [AUTO_RELEASE_PAYOUT, REVISE_DELIVERABLE, SIGNATURE_TAMPERED, MALFORMED_PAYLOAD]
+          example: "AUTO_RELEASE_PAYOUT"
+        recommendation:
+          type: string
+          example: "Cryptographic Zero-Knowledge Proof verified (24/24 private CI tests passed, 96% coverage). Zero lines of proprietary code left private CI. Autonomous PayPal Escrow release authorized."
+
+    ZkAttestationRecord:
+      type: object
+      properties:
+        attestationId:
+          type: string
+          example: "ZKA-9F28A1C4"
+        agreementId:
+          type: string
+          example: "SMA-NDA-600"
+        milestoneId:
+          type: string
+          example: "M1"
+        artifactDigest:
+          type: string
+          example: "sha256:88a1b2..."
+        score:
+          type: number
+          example: 100
+        verdict:
+          type: string
+          example: "AUTO_RELEASE_PAYOUT"
+        hmacSignature:
+          type: string
+          example: "6c9d81fe80b91e779a1f26a79e43f1d8..."
+
+    ArbitrateDisputeRequest:
+      type: object
+      required:
+        - contract
+        - disputeReason
+        - clientClaim
+        - freelancerClaim
+      properties:
+        contract:
+          type: object
+          properties:
+            id:
+              type: string
+              example: "SMA-3204"
+            title:
+              type: string
+              example: "Fintech Mobile UI"
+            totalBudget:
+              type: number
+              example: 500
+        disputeReason:
+          type: string
+          example: "Secondary tablet responsiveness disputed"
+        clientClaim:
+          type: string
+          example: "Tablet layout overflows on iPad Mini viewport."
+        freelancerClaim:
+          type: string
+          example: "Core PayPal checkout and 8 mobile screens delivered and verified."
+        geminiApiKey:
+          type: string
+          description: Optional Gemini 2.5 Flash API Key
+
+    ArbitrateDisputeResponse:
+      type: object
+      properties:
+        tribunalId:
+          type: string
+          example: "ARB-9821-394"
+        ruling:
+          type: string
+          example: "PARTIAL_SPLIT_PAYOUT"
+        recommendedSplit:
+          type: object
+          properties:
+            freelancerPercent:
+              type: number
+              example: 75
+            clientRefundPercent:
+              type: number
+              example: 25
+            freelancerPayoutUsd:
+              type: number
+              example: 375
+            clientRefundUsd:
+              type: number
+              example: 125
+        settlementAction:
+          type: string
+          example: "Execute 1-Click PayPal Partial Refund"
+        evidenceAnalysis:
+          type: array
+          items:
+            type: object
+            properties:
+              evidence:
+                type: string
+              weight:
+                type: string
+              impact:
+                type: string
+
+    TransactionsResponse:
+      type: object
+      properties:
+        totalCount:
+          type: integer
+          example: 4
+        transactions:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransactionItem'
+
+    TransactionItem:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "TXN-8921"
+        agreementId:
+          type: string
+          example: "SMA-DEMO-01"
+        project:
+          type: string
+          example: "Autonomous Checkout Microservice"
+        buyer:
+          type: string
+          example: "Atlas (Buyer Agent)"
+        freelancer:
+          type: string
+          example: "Nova (Seller Agent)"
+        amount:
+          type: number
+          example: 350
+        currency:
+          type: string
+          example: "USD"
+        paypalOrderId:
+          type: string
+          example: "8XP19828471"
+        paypalCaptureId:
+          type: string
+          nullable: true
+          example: "CAP-892182918"
+        status:
+          type: string
+          example: "COMPLETED"
+        privacyMode:
+          type: string
+          example: "ZK-NDA"
+        proofHash:
+          type: string
+          example: "sha256:7f83b165..."
+        aiScore:
+          type: number
+          nullable: true
+          example: 95
+        date:
+          type: string
+          format: date-time
+        type:
+          type: string
+          example: "ZK-Attested Auto-Release"
+
+    AgreementsResponse:
+      type: object
+      properties:
+        totalCount:
+          type: integer
+          example: 3
+        agreements:
+          type: array
+          items:
+            $ref: '#/components/schemas/Agreement'
+
+    MilestoneReleaseRequest:
+      type: object
+      properties:
+        score:
+          type: number
+          example: 95
+        proofHash:
+          type: string
+          example: "sha256:release-m1-verified"
+
+    MilestoneReleaseResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        agreementId:
+          type: string
+          example: "SMA-DEMO-01"
+        milestoneId:
+          type: string
+          example: "M1"
+        releasedAmount:
+          type: number
+          example: 150
+        paypalCaptureId:
+          type: string
+          example: "CAP-9821728192"
+        status:
+          type: string
+          example: "RELEASED"
+
+    PayPalWebhookEvent:
+      type: object
+      required:
+        - id
+        - event_type
+      properties:
+        id:
+          type: string
+          example: "WH-982182-8219"
+        event_type:
+          type: string
+          example: "CHECKOUT.ORDER.APPROVED"
+        resource_type:
+          type: string
+          example: "checkout-order"
+        summary:
+          type: string
+          example: "A checkout order has been approved"
+        resource:
+          type: object
+          properties:
+            id:
+              type: string
+              example: "8XP19828471"
+            status:
+              type: string
+              example: "APPROVED"
+
+    PayPalWebhookResponse:
+      type: object
+      properties:
+        received:
+          type: boolean
+          example: true
+        status:
+          type: string
+          enum: [PROCESSED, DUPLICATE]
+          example: "PROCESSED"
+        eventId:
+          type: string
+          example: "WH-982182-8219"
+        eventType:
+          type: string
+          example: "CHECKOUT.ORDER.APPROVED"
+
+    ZapierWebhookRequest:
+      type: object
+      properties:
+        event:
+          type: string
+          example: "ESCROW_PAYOUT_TRIGGERED"
+        payload:
+          type: object
+          properties:
+            agreementId:
+              type: string
+              example: "SMA-DEMO-01"
+            amount:
+              type: number
+              example: 350
+        targetUrl:
+          type: string
+          format: uri
+          example: "https://hooks.zapier.com/hooks/catch/123456/abcdef/"
+
+    ZapierWebhookResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        eventId:
+          type: string
+          example: "ZAP-1731147000000-842"
+        event:
+          type: string
+          example: "ESCROW_PAYOUT_TRIGGERED"
+        forwarded:
+          type: boolean
+          example: true
+        timestamp:
+          type: string
+          format: date-time
+
+    WebhookEventsResponse:
+      type: object
+      properties:
+        totalCount:
+          type: integer
+          example: 5
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/WebhookEventRecord'
+
+    WebhookEventRecord:
+      type: object
+      properties:
+        eventId:
+          type: string
+          example: "WH-982182-8219"
+        eventType:
+          type: string
+          example: "CHECKOUT.ORDER.APPROVED"
+        resourceId:
+          type: string
+          example: "8XP19828471"
+        status:
+          type: string
+          example: "PROCESSED"
+        timestamp:
+          type: string
+          format: date-time
+
+    ClientTokenResponse:
+      type: object
+      properties:
+        clientToken:
+          type: string
+          example: "sandbox_client_token_982182..."
+
+    ValidatePayPalRequest:
+      type: object
+      required:
+        - clientId
+        - clientSecret
+      properties:
+        clientId:
+          type: string
+          example: "sandbox_client_id"
+        clientSecret:
+          type: string
+          example: "sandbox_client_secret"
+
+    ValidatePayPalResponse:
+      type: object
+      properties:
+        valid:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "PayPal Sandbox OAuth2 credentials verified successfully!"
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          example: "Resource not found"
+        reason:
+          type: string
+        requiredHeaders:
+          type: array
+          items:
+            type: string
