@@ -4,6 +4,9 @@
   "description": "NexusPay AI — Autonomous Agentic Commerce, Zero-Knowledge NDA Verification & Milestone Escrow Powered by PayPal",
   "main": "server/index.js",
   "type": "module",
+  "engines": {
+    "node": ">=22.13.0 <25.0.0"
+  },
   "scripts": {
     "dev": "node server/index.js",
     "build:client": "vite build",

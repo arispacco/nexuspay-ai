@@ -3,7 +3,6 @@ services:
     name: nexuspay-ai
     runtime: node
     plan: free
-    nodeVersion: 22.12.0
     autoDeploy: true
     buildCommand: npm install && npm run build
     startCommand: npm start
@@ -11,6 +10,8 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      - key: NODE_VERSION
+        value: "24"
       - key: PAYPAL_ENVIRONMENT
         value: sandbox
       - key: PAYPAL_CLIENT_ID
