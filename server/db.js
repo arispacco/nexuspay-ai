@@ -139,6 +139,12 @@ function initSchema() {
 
     CREATE INDEX IF NOT EXISTS idx_telemetry_timestamp ON telemetry_buffer(timestamp);
   `);
+
+  // Lightweight migration: remember the PayPal authorization that backs each escrow
+  const agreementCols = db.prepare('PRAGMA table_info(agreements)').all().map((c) => c.name);
+  if (!agreementCols.includes('paypal_authorization_id')) {
+    db.exec('ALTER TABLE agreements ADD COLUMN paypal_authorization_id TEXT');
+  }
 }
 
 /**
@@ -179,6 +185,7 @@ function formatAgreement(row, milestones = []) {
     contractHash: row.contract_hash,
     escrowStatus: row.escrow_status,
     paypalOrderId: row.paypal_order_id,
+    paypalAuthorizationId: row.paypal_authorization_id || null,
     buyerAgentId: row.buyer_agent_id,
     sellerAgentId: row.seller_agent_id,
     kyaMandates: row.kya_mandates_json ? JSON.parse(row.kya_mandates_json) : null,
@@ -648,15 +655,17 @@ export function updateAgreement(id, updates = {}) {
 
   const escrowStatus = updates.escrowStatus || updates.escrow_status || ag.escrow_status;
   const paypalOrderId = updates.paypalOrderId || updates.paypal_order_id || ag.paypal_order_id;
+  const authorizationId = updates.paypalAuthorizationId || updates.paypal_authorization_id || ag.paypal_authorization_id || null;
   const now = new Date().toISOString();
 
   db.prepare(`
     UPDATE agreements SET
       escrow_status = ?,
       paypal_order_id = ?,
+      paypal_authorization_id = ?,
       updated_at = ?
     WHERE id = ?
-  `).run(escrowStatus, paypalOrderId, now, id);
+  `).run(escrowStatus, paypalOrderId, authorizationId, now, id);
 
   return getAgreement(id);
 }

@@ -197,24 +197,24 @@ Return JSON: {
     milestones: [
       {
         id: 'M1',
-        name: 'Milestone 1: Core Architecture & PayPal SDK',
+        name: 'Core build & PayPal checkout',
         amount: m1Amount,
         criteria: llmData?.m1Criteria || [
-          'Valid modular syntax with balanced delimiters and zero stubs',
-          'Clean exported component/service with async lifecycle handling',
-          'PayPal SDK / REST order lifecycle & responsive layout compliance'
+          'Code is complete and well-formed (no stubs or TODOs)',
+          'Clean modular structure with proper error handling',
+          'PayPal checkout / order flow is integrated'
         ],
         status: 'PENDING_DEPOSIT',
         aiScore: null
       },
       {
         id: 'M2',
-        name: 'Milestone 2: Security, DLP & Zero-Knowledge Proofs',
+        name: 'Hardening, security & tests',
         amount: m2Amount,
         criteria: llmData?.m2Criteria || [
-          'End-to-end capture & error boundary resilience',
-          'Zero hardcoded secrets (DLP compliant)',
-          'Automated integration suite passing >= 90%'
+          'Production code is complete and well-formed',
+          'Error handling and secrets kept out of the code',
+          'PayPal capture and refund flows are covered'
         ],
         status: 'LOCKED',
         aiScore: null
@@ -351,14 +351,17 @@ export async function arbitrateDispute({
   contract,
   clientClaim,
   freelancerClaim,
+  evidenceScore,
   geminiApiKey
 }) {
+  const hasEvidence = Number.isFinite(Number(evidenceScore)) && evidenceScore !== null && evidenceScore !== '';
   const totalAmount = Number(contract?.totalBudget) || 500;
 
   const llmArb = await callGeminiJson(
     `Act as an impartial fintech Escrow Arbitration Tribunal for contract "${contract?.title}" ($${totalAmount} USD).
 Client Claim: "${clientClaim}"
 Freelancer Rebuttal: "${freelancerClaim}"
+${hasEvidence ? `Objective evidence: the automated delivery audit scored the work ${Math.round(evidenceScore)}/100.` : ''}
 Determine fair integer freelancerPayoutPercent (between 0 and 100) and explain 3 objective factors.
 Return JSON: {
   "freelancerPayoutPercent": number,
@@ -383,6 +386,10 @@ Return JSON: {
     defaultFreelancerPct = 75;
   } else if (/crash|broken|50%|half/i.test(cLower)) {
     defaultFreelancerPct = 50;
+  }
+  // Objective evidence beats rhetoric: when an audit score exists, pay in proportion to it.
+  if (hasEvidence) {
+    defaultFreelancerPct = Math.max(0, Math.min(100, Math.round(Number(evidenceScore) / 5) * 5));
   }
 
   const freelancerPayoutPercent =
@@ -413,7 +420,9 @@ Return JSON: {
     analysisBreakdown: llmArb?.factors || [
       {
         factor: 'Contractual Milestone Evidence',
-        finding: `Verified primary deliverables represent ${freelancerPayoutPercent}% of agreed commercial utility.`
+        finding: hasEvidence
+          ? `The automated delivery audit scored the work ${Math.round(evidenceScore)}/100, so the freelancer earns ${freelancerPayoutPercent}% of the held amount.`
+          : `Verified primary deliverables represent ${freelancerPayoutPercent}% of agreed commercial utility.`
       },
       {
         factor: 'Validated Buyer Deficiency Claim',

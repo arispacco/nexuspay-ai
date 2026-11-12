@@ -10,6 +10,8 @@ import {
   authorizePayPalOrder,
   capturePayPalOrder,
   capturePayPalAuthorization,
+  voidPayPalAuthorization,
+  getPayPalConnectionStatus,
   refundPayPalOrder,
   createPayPalMilestoneInvoice,
   generatePayPalClientToken,
@@ -51,6 +53,38 @@ app.get('/api/health', (req, res) => {
     paypalMcpSdk: mcp.sdkPackage,
     registeredMcpTools: mcp.registeredTools
   });
+});
+
+// Honest runtime status: which parts are real and which are emulated
+app.get('/api/status', async (req, res) => {
+  const { live } = await getPayPalConnectionStatus();
+  res.json({
+    paypal: live ? 'live' : 'simulated',
+    paypalEnvironment: live ? (process.env.PAYPAL_ENVIRONMENT === 'production' ? 'live' : 'sandbox') : 'emulator',
+    paypalClientId: live ? process.env.PAYPAL_CLIENT_ID : null,
+    ai: process.env.GEMINI_API_KEY ? 'gemini' : 'rules'
+  });
+});
+
+// Step 2 of escrow: after the buyer approves the order, place the funds on hold
+app.post('/api/paypal/authorize-order', async (req, res) => {
+  try {
+    const { orderId, agreementId } = req.body || {};
+    if (!orderId) return res.status(400).json({ error: 'orderId is required' });
+    const auth = await authorizePayPalOrder({ orderId });
+    db.updateLedgerTransaction(orderId, { status: 'ESCROW_AUTHORIZED' });
+    if (agreementId && db.getAgreement(agreementId)) {
+      db.updateAgreement(agreementId, {
+        paypalOrderId: orderId,
+        paypalAuthorizationId: auth.authorizationId,
+        escrowStatus: 'ESCROW_AUTHORIZED'
+      });
+    }
+    res.json(auth);
+  } catch (err) {
+    console.error('Authorize order error:', err);
+    res.status(500).json({ error: 'Failed to authorize PayPal order' });
+  }
 });
 
 // Official @paypal/agent-toolkit MCP Inspection & Telemetry
@@ -252,7 +286,7 @@ app.post('/api/paypal/refund-order', async (req, res) => {
 // Verify Deliverable with DLP + AI Engine
 app.post('/api/verify-deliverable', async (req, res) => {
   try {
-    const { milestone, deliverableType, deliverableContent, deliverableUrl, repoUrl, geminiApiKey } = req.body;
+    const { milestone, deliverableType, deliverableContent, deliverableUrl, repoUrl, geminiApiKey, agreementId, milestoneId } = req.body;
     const evaluation = await evaluateDeliverable({
       milestone,
       deliverableType,
@@ -261,6 +295,10 @@ app.post('/api/verify-deliverable', async (req, res) => {
       repoUrl,
       geminiApiKey
     });
+    if (agreementId && milestoneId) {
+      // Remember the verdict server-side: payouts are only possible for a verified milestone
+      db.updateMilestone(agreementId, milestoneId, { aiScore: evaluation.overallScore, verdict: evaluation.verdict });
+    }
     res.json(evaluation);
   } catch (err) {
     console.error('Verification error:', err);
@@ -309,6 +347,12 @@ app.post('/api/privacy/verify-zk-proof', (req, res) => {
   const { attestationBundle } = req.body;
   const verification = verifyZeroKnowledgeAttestation(attestationBundle);
 
+  const attAgreementId = attestationBundle?.payload?.agreementId;
+  const attMilestoneId = attestationBundle?.payload?.milestoneId;
+  if (verification.valid && attAgreementId && attMilestoneId) {
+    db.updateMilestone(attAgreementId, attMilestoneId, { aiScore: verification.overallScore, verdict: verification.verdict });
+  }
+
   if (attestationBundle?.attestationId) {
     try {
       db.saveZkAttestation({
@@ -342,12 +386,13 @@ app.get('/api/privacy/attestation/:id', (req, res) => {
 // Arbitrate Dispute
 app.post('/api/arbitrate-dispute', async (req, res) => {
   try {
-    const { contract, disputeReason, clientClaim, freelancerClaim, geminiApiKey } = req.body;
+    const { contract, disputeReason, clientClaim, freelancerClaim, evidenceScore, geminiApiKey } = req.body;
     const arbitration = await arbitrateDispute({
       contract,
       disputeReason,
       clientClaim,
       freelancerClaim,
+      evidenceScore,
       geminiApiKey
     });
     res.json(arbitration);
@@ -384,11 +429,13 @@ app.get('/api/agreements/:id', (req, res) => {
   res.json(agreement);
 });
 
-// Milestone-level payout release
+// Milestone-level payout release.
+// With a PayPal authorization on hold, each milestone is a partial capture of that authorization;
+// the last milestone is flagged as the final capture so PayPal closes the authorization.
 app.post('/api/agreements/:id/milestones/:mId/release', async (req, res) => {
   try {
     const { id: agreementId, mId: milestoneId } = req.params;
-    const { score, proofHash, clientId, clientSecret } = req.body || {};
+    const { score, proofHash, buyerApproved } = req.body || {};
 
     const agreement = db.getAgreement(agreementId);
     if (!agreement) {
@@ -401,13 +448,44 @@ app.post('/api/agreements/:id/milestones/:mId/release', async (req, res) => {
     if (!milestone) {
       return res.status(404).json({ error: `Milestone ${milestoneId} not found in agreement ${agreementId}` });
     }
+    if (milestone.status === 'RELEASED') {
+      return res.status(409).json({ error: `Milestone ${milestone.id} was already paid` });
+    }
+
+    if (!agreement.paypalAuthorizationId) {
+      return res.status(402).json({ error: 'Escrow is not funded yet; approve the PayPal hold first' });
+    }
+    const earlierOpen = (agreement.milestones || []).some(
+      (m) => m.milestoneIndex < milestone.milestoneIndex && m.status !== 'RELEASED'
+    );
+    if (earlierOpen) {
+      return res.status(409).json({ error: 'Earlier milestones must be paid first' });
+    }
+
+    // Funds move only after a passing verification, or after the buyer explicitly approves a borderline one
+    const verified = milestone.verdict === 'AUTO_RELEASE_PAYOUT';
+    const approvedByBuyer = milestone.verdict === 'MANUAL_CLIENT_REVIEW' && buyerApproved === true;
+    if (!verified && !approvedByBuyer) {
+      return res.status(403).json({
+        error: milestone.verdict
+          ? `Milestone ${milestone.id} did not pass verification (${milestone.verdict}); funds stay on hold`
+          : `Milestone ${milestone.id} has not been verified yet; funds stay on hold`
+      });
+    }
 
     const orderId = agreement.paypalOrderId || `8XP-${agreementId}`;
-    const captureResult = await capturePayPalOrder({
-      orderId,
-      clientId,
-      clientSecret
-    });
+    const stillOpen = (agreement.milestones || []).filter((m) => m.status !== 'RELEASED' && m.id !== milestone.id);
+    let captureResult;
+    if (agreement.paypalAuthorizationId) {
+      captureResult = await capturePayPalAuthorization({
+        authorizationId: agreement.paypalAuthorizationId,
+        amount: milestone.amount,
+        currency: agreement.currency || 'USD',
+        isFinal: stillOpen.length === 0
+      });
+    } else {
+      captureResult = await capturePayPalOrder({ orderId });
+    }
 
     const releaseScore = score !== undefined ? score : (milestone.aiScore || 95);
     const updatedMilestone = db.updateMilestone(agreementId, milestone.id, {
@@ -446,12 +524,94 @@ app.post('/api/agreements/:id/milestones/:mId/release', async (req, res) => {
       releasedAmount: milestone.amount,
       currency: agreement.currency || 'USD',
       paypalCaptureId: captureResult.captureId,
+      mode: captureResult.mode,
       status: 'RELEASED',
+      dealCompleted: stillOpen.length === 0,
       milestone: updatedMilestone
     });
   } catch (err) {
     console.error('Milestone release error:', err);
     res.status(500).json({ error: 'Failed to release milestone payout' });
+  }
+});
+
+// Settle a dispute on the funds still held: pay the freelancer their share, return the rest to the buyer.
+// A final partial capture closes the authorization and PayPal releases the remainder to the buyer.
+app.post('/api/agreements/:id/settle-dispute', async (req, res) => {
+  try {
+    const agreementId = req.params.id;
+    const { freelancerAmount, clientRefundAmount, ruling } = req.body || {};
+    const agreement = db.getAgreement(agreementId);
+    if (!agreement) {
+      return res.status(404).json({ error: `Agreement ${agreementId} not found` });
+    }
+
+    if (!agreement.paypalAuthorizationId) {
+      return res.status(402).json({ error: 'Escrow is not funded; there is nothing to settle' });
+    }
+
+    const heldAmount = (agreement.milestones || [])
+      .filter((m) => m.status !== 'RELEASED')
+      .reduce((sum, m) => sum + m.amount, 0);
+    const payout = Math.min(Math.max(Number(freelancerAmount) || 0, 0), heldAmount);
+    const refund = Math.round((heldAmount - payout) * 100) / 100;
+    const orderId = agreement.paypalOrderId || `8XP-${agreementId}`;
+    const authorizationId = agreement.paypalAuthorizationId;
+
+    let captureId = null;
+    let mode;
+    if (payout > 0) {
+      const capture = await capturePayPalAuthorization({
+        authorizationId,
+        amount: payout,
+        currency: agreement.currency || 'USD',
+        isFinal: true
+      });
+      captureId = capture.captureId;
+      mode = capture.mode;
+    } else {
+      const voided = await voidPayPalAuthorization({ authorizationId });
+      mode = voided.mode;
+    }
+
+    for (const m of agreement.milestones || []) {
+      if (m.status !== 'RELEASED') {
+        db.updateMilestone(agreementId, m.id, { status: 'RELEASED', paypalCaptureId: captureId, verdict: 'ARBITRATED' });
+      }
+    }
+    db.updateAgreement(agreementId, { escrowStatus: 'ARBITRATED_SPLIT' });
+
+    db.addLedgerTransaction({
+      id: `TXN-${Math.floor(1000 + Math.random() * 9000)}`,
+      agreementId,
+      project: `${agreement.title} (dispute settlement)`,
+      buyer: 'Atlas (Buyer Agent)',
+      freelancer: 'Nova (Seller Agent)',
+      amount: payout,
+      currency: agreement.currency || 'USD',
+      paypalOrderId: orderId,
+      paypalCaptureId: captureId,
+      status: 'ARBITRATED_SPLIT',
+      privacyMode: agreement.ndaProtected ? 'ZK-NDA' : 'ZDR-DLP',
+      proofHash: `sha256:arb-${Date.now().toString(16)}`,
+      aiScore: null,
+      date: new Date().toISOString(),
+      type: `AI Dispute Resolution (${payout.toFixed(2)} paid / ${refund.toFixed(2)} refunded)`,
+      rawPayload: { ruling, freelancerAmount: payout, clientRefundAmount: clientRefundAmount ?? refund }
+    });
+
+    res.json({
+      success: true,
+      agreementId,
+      freelancerPaid: payout,
+      buyerRefunded: refund,
+      currency: agreement.currency || 'USD',
+      paypalCaptureId: captureId,
+      mode
+    });
+  } catch (err) {
+    console.error('Settle dispute error:', err);
+    res.status(500).json({ error: 'Failed to settle dispute' });
   }
 });
 
